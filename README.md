@@ -1,10 +1,10 @@
-# Projektarbeit-KI-ML
+# Projektarbeit-AI-ML
 
-Hierbei geht es um die KI/ML Projektarbeit. Sie besteht aus 3 folgenden Teilen:
+The following Projectwork consists of three Parts which is listed below :
 
 1. Supervised Learning
 2. Unsupervised Learning
 3. Neural Networks
 
-Ziel dieser Projektarbeit besteht darin, die schon verarbeiteten Rohdaten, anhand ML Algorithm zu klassifizieren oder als Regressionsproblem zu lösen.
+The Aim of the Projectwort is to use the Rawdata to classify it in different classes or to solve a Regressionproblem.
 
