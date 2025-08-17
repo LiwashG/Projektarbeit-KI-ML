@@ -66,7 +66,7 @@
     \newgeometry{left=2cm,right=2cm,top=2cm,bottom=2cm}
     
     \begin{tikzpicture}[remember picture,overlay]
-        \node[anchor=north east,inner sep=20pt] at ([shift={(-1cm,-1cm)}]current page.north east) {\includegraphics[width=7cm]{pictures/HM_SchriftzugLogo_RGB.png}};
+        \node[anchor=north east,inner sep=20pt] at ([shift={(-1cm,-1cm)}]current page.north east) {\includegraphics[width=7cm]{Pictures/HM_SchriftzugLogo_RGB.png}};
     \end{tikzpicture}
 
     \vspace*{2cm}
