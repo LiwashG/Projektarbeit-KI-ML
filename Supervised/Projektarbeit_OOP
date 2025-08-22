@@ -1,8 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn import tree
-from sklearn.tree import export_graphviz
+from sklearn.tree import export_graphviz,DecisionTreeClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import mean_absolute_error, mean_squared_error, accuracy_score, r2_score
 import matplotlib.pyplot as plt
@@ -21,8 +20,8 @@ class RFC:
       self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(df, Y_class, test_size=0.2, random_state=42)
 
       self.model = RandomForestClassifier(random_state= 42)
-
       self.model.fit(self.X_train,self.y_train)
+      self.y_pred = self.model.predict(self.X_test)
 
     def predicten(self):
       self.y_pred = self.model.predict(self.X_test)
@@ -81,15 +80,16 @@ class Dec_tree:
    def __init__(self,df,Y_class):
       self.df = df
       self.Y_class = Y_class
-      self.X_train, self.X_test, self.y_train, y_test = train_test_split(df, Y_class, test_size=0.2, random_state=42)
+      self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(df, Y_class, test_size=0.2, random_state=42)
 
-      self.model = tree(random_state= 42)
+      self.model = DecisionTreeClassifier(random_state= 42)
 
       self.model.fit(self.X_train,self.y_train)
+      self.y_pred = self.model.predict(self.X_test)
 
 
    def predicten(self):
-      self.y_pred = self.model.predict(self.X_test)
+      
       print(f"The Predicted Outputs are as follows: \n{self.y_pred}")
 
    def feature_importance(self):
@@ -166,3 +166,13 @@ df = df.drop(columns="Linie")
 
 #Random Variable 
 df["Random_Variable"] = np.random.rand(len(df),1) * 100
+
+# Model Intialization
+
+rfc = RFC(df, Y_class)
+dt = Dec_tree(df, Y_class)
+
+# Output Analysis through Confusion Matrix
+
+rfc.Confusion_mat()
+dt.Confusion_mat()
