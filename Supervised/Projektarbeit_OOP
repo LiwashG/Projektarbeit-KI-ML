@@ -75,7 +75,7 @@ class RFC:
 
 
 
-class Dec_tree:
+class Dec_tree(RFC):
    
    def __init__(self,df,Y_class):
       self.df = df
@@ -86,57 +86,6 @@ class Dec_tree:
 
       self.model.fit(self.X_train,self.y_train)
       self.y_pred = self.model.predict(self.X_test)
-
-
-   def predicten(self):
-      
-      print(f"The Predicted Outputs are as follows: \n{self.y_pred}")
-
-   def feature_importance(self):
-      self.feature_importance = self.model.feature_importances_
-      for feature,importance in zip(self.X_train.columns , self.feature_importance):
-            # Feature with its Importances
-          print(f"Feature: {feature} and the Importance : {importance} ")
-
-        # Sorting the features
-      sorted_indices = self.feature_importance.argsort()[::-1] # sorted in decreasing order
-      sorted_importances = self.feature_importance[sorted_indices]
-
-        #Create a Bar Plot of the feature Importances
-      plt.figure(figsize = (10,6))
-      plt.bar(range(self.X_train.shape[1]) , sorted_importances)
-      plt.xticks( range(self.X_train.shape[1]), self.X_train.columns[sorted_indices], rotation=90)
-      plt.title("Feature Importances")
-      plt.show()
-
-
-   def Confusion_mat(self):
-      cm = confusion_matrix(self.y_test, self.y_pred)
-      sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-      plt.xlabel("Predicted")
-      plt.ylabel("True")
-      plt.show()
-
-   def random_filter(self):  
-      Ind = np.where(self.feature_importance < self.feature_importance[-1])
-      Colname = self.df.columns[Ind]
-
-      df1 = self.df.drop(columns=Colname) 
-      df1 = df1.drop(columns= "Random_Variable")
-      self.y_pred = self.model.predict(self.X_test)
-
-      self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(df1, self.Y_class, test_size=0.2, random_state=42)
-
-      self.model = RandomForestClassifier(random_state= 42)
-      self.model.fit(self.X_train , self.y_train)
-  
-   def params_opt(self):
-
-      parameters = {'n_estimators':[1000, 2500, 5000, 7500, 10000], 'max_depth':[30,35,45,50]}
-      self.opt_model = GridSearchCV(self.model, parameters)
-      self.opt_model.fit(self.X_train,self.y_train)
-
-      self.y_pred_clf = self.opt_model.predict(self.X_test)    
 
 
 ## Rawdata
