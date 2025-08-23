@@ -11,10 +11,13 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import accuracy_score, classification_report, precision_score
 
 class RFC:
   
     def __init__(self,df, Y_class):
+      self.target_names = ['class 0', 'class 1', 'class 2']
+      self.Name = "Random Forest Classifier"
       self.df = df
       self.Y_class = Y_class
       self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(df, Y_class, test_size=0.2, random_state=42)
@@ -22,6 +25,7 @@ class RFC:
       self.model = RandomForestClassifier(random_state= 42)
       self.model.fit(self.X_train,self.y_train)
       self.y_pred = self.model.predict(self.X_test)
+      self.feature_importance = self.model.feature_importances_
 
     def predicten(self):
       self.y_pred = self.model.predict(self.X_test)
@@ -53,6 +57,7 @@ class RFC:
       plt.show()
 
     def random_filter(self):  
+
       Ind = np.where(self.feature_importance < self.feature_importance[-1])
       Colname = self.df.columns[Ind]
 
@@ -64,6 +69,9 @@ class RFC:
 
       self.model = RandomForestClassifier(random_state= 42)
       self.model.fit(self.X_train , self.y_train)
+
+      self.Confusion_mat()
+      self.get_metrics_score()
   
     def params_opt(self):
 
@@ -73,38 +81,42 @@ class RFC:
 
       self.y_pred_clf = self.opt_model.predict(self.X_test)
 
+    def get_metrics_score(self):
+       print(f"The calculated Accuracy Score of the {self.Name} Model is {accuracy_score(self.y_test ,self.y_pred)}")
+       print(f"The Classification Report of the {self.Name} ist \n{classification_report(self.y_test,self.y_pred ,target_names=self.target_names)}")
+
 
 
 class Dec_tree(RFC):
    
    def __init__(self,df,Y_class):
-      self.df = df
-      self.Y_class = Y_class
-      self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(df, Y_class, test_size=0.2, random_state=42)
-
+      super().__init__(df,Y_class)
       self.model = DecisionTreeClassifier(random_state= 42)
-
+      self.Name = "Decision Tree"
       self.model.fit(self.X_train,self.y_train)
       self.y_pred = self.model.predict(self.X_test)
+      self.feature_importance = self.model.feature_importances_
+
+      
 
 
 ## Rawdata
 # The Rawdata ist packed into a Dataframe 
 df = pd.read_excel(r"C:\Users\liwas\OneDrive\Desktop\Hochschule München\MBB8\Applied ML\Projektarbeit\chiefs_knife_dataset.xlsx")
 
-
 ## Target Class
 Y = df['Ra']
+
 
 ind_0 = np.where(Y < 0.13)
 ind_1 = np.where((Y >= 0.13) & (Y <= 0.21))
 ind_2 = np.where(Y > 0.21)
 
+
 Y_class = Y.copy()
 Y_class[ind_0] = 0
 Y_class[ind_1] = 1
 Y_class[ind_2] = 2
-
 
 ## Random Variable
 # We are going use a randomly generated Variable to filter out the Variables who have little to no effect on the Output of the Model. 
@@ -125,3 +137,16 @@ dt = Dec_tree(df, Y_class)
 
 rfc.Confusion_mat()
 dt.Confusion_mat()
+
+# Metric scores
+
+rfc.get_metrics_score()
+dt.get_metrics_score()
+
+# Random Variable Filter
+rfc.random_filter()
+dt.random_filter()
+
+# Hyperparameter Optimization
+rfc.params_opt()
+dt.params_opt
