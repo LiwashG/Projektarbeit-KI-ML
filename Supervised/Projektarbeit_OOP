@@ -10,6 +10,7 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn import svm
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score, classification_report, precision_score
 
@@ -89,15 +90,23 @@ class RFC:
 
 class Dec_tree(RFC):
    
-   def __init__(self,df,Y_class):
+   def __init__(self,df,Y_class, feature_importances_ = None):
       super().__init__(df,Y_class)
       self.model = DecisionTreeClassifier(random_state= 42)
       self.Name = "Decision Tree"
       self.model.fit(self.X_train,self.y_train)
       self.y_pred = self.model.predict(self.X_test)
-      self.feature_importance = self.model.feature_importances_
+      self.feature_importance = feature_importances_
 
       
+class SVM_clf(RFC):
+   def __init__(self,df,Y_class, feature_importances_ = None):
+      super().__init__(df,Y_class)
+      self.model = svm.SVC(random_state= 42)
+      self.Name = "Support Vector Classifier"
+      self.model.fit(self.X_train,self.y_train)
+      self.y_pred = self.model.predict(self.X_test)
+      self.feature_importance = feature_importances_
 
 
 ## Rawdata
@@ -131,22 +140,27 @@ df["Random_Variable"] = np.random.rand(len(df),1) * 100
 # Model Intialization
 
 rfc = RFC(df, Y_class)
-dt = Dec_tree(df, Y_class)
+dt = Dec_tree(df, Y_class,rfc.model.feature_importances_)
+svc = SVM_clf(df, Y_class,rfc.model.feature_importances_ )
 
 # Output Analysis through Confusion Matrix
 
 rfc.Confusion_mat()
 dt.Confusion_mat()
+svc.Confusion_mat()
 
 # Metric scores
 
 rfc.get_metrics_score()
 dt.get_metrics_score()
+svc.get_metrics_score()
 
 # Random Variable Filter
 rfc.random_filter()
 dt.random_filter()
+svc.random_filter()
 
 # Hyperparameter Optimization
 rfc.params_opt()
-dt.params_opt
+dt.params_opt()
+svc.params_opt()
