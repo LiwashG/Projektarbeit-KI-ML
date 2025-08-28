@@ -10,9 +10,11 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn import svm
+from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score, classification_report, precision_score
+from sklearn.preprocessing import StandardScaler, Normalizer , RobustScaler
+from sklearn.pipeline import make_pipeline
 
 class RFC:
   
@@ -49,13 +51,12 @@ class RFC:
       plt.title("Feature Importances")
       plt.show()
 
-
     def Confusion_mat(self):
       cm = confusion_matrix(self.y_test, self.y_pred)
       sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
       plt.xlabel("Predicted")
       plt.ylabel("True")
-      plt.show()
+      plt.show(block=False)
 
     def random_filter(self):  
 
@@ -76,7 +77,7 @@ class RFC:
   
     def params_opt(self):
 
-      parameters = {'n_estimators':[1000, 2500, 5000, 7500, 10000], 'max_depth':[30,35,45,50]}
+      parameters = {'n_estimators':[1000, 2500, 5000, 7500, 10000], 'max_depth':[30,35,45,50], "ccp_alpha":[0.01,0.1,1,10]}
       self.opt_model = GridSearchCV(self.model, parameters)
       self.opt_model.fit(self.X_train,self.y_train)
 
@@ -98,15 +99,38 @@ class Dec_tree(RFC):
       self.y_pred = self.model.predict(self.X_test)
       self.feature_importance = feature_importances_
 
+   def params_opt(self):
+
+      parameters = {'n_estimators':[1000, 2500, 5000, 7500, 10000], 'max_depth':[10,100,500,1000], "ccp_alpha":[0.01,0.1,1,10]}
+      self.opt_model = GridSearchCV(self.model, parameters)
+      self.opt_model.fit(self.X_train,self.y_train)
+
+      self.y_pred_clf = self.opt_model.predict(self.X_test)
+   
+
       
 class SVM_clf(RFC):
-   def __init__(self,df,Y_class, feature_importances_ = None):
+   def __init__(self,df,Y_class, feature_importances_ = None, name = None ,dec = None):
       super().__init__(df,Y_class)
-      self.model = svm.SVC(random_state= 42)
-      self.Name = "Support Vector Classifier"
+      if dec is None:
+         self.model = make_pipeline(StandardScaler(), SVC())
+      elif dec == "n":
+         self.model = make_pipeline(Normalizer(), SVC())
+      elif dec == "r":
+         self.model = make_pipeline(RobustScaler() , SVC())      
+         
+      self.Name = "Support Vector Classifier" if name is None else name
       self.model.fit(self.X_train,self.y_train)
       self.y_pred = self.model.predict(self.X_test)
       self.feature_importance = feature_importances_
+
+
+   def params_opt(self):
+       parameters = {'kernel':{"linear", "poly", "rbf", "sigmoid"}, 'C':[0.1,1,5,10]}
+       self.opt_model = GridSearchCV(self.model, parameters)
+       self.opt_model.fit(self.X_train,self.y_train)
+
+       self.y_pred_clf = self.opt_model.predict(self.X_test)
 
 
 ## Rawdata
@@ -141,26 +165,40 @@ df["Random_Variable"] = np.random.rand(len(df),1) * 100
 
 rfc = RFC(df, Y_class)
 dt = Dec_tree(df, Y_class,rfc.model.feature_importances_)
-svc = SVM_clf(df, Y_class,rfc.model.feature_importances_ )
+
+# Only Tree Based Algorithms dont require the scaling of the Data.
+# For SVC, the Scaling of the Data is required.
+
+
+svc_clf_s = SVM_clf(df, Y_class,rfc.model.feature_importances_ ,"Support Vector Classifier Standerdized")
+svc_clf_n = SVM_clf(df, Y_class,rfc.model.feature_importances_ ,"Support Vector Classifier Normalized","n")
+svc_clf_r = SVM_clf(df, Y_class,rfc.model.feature_importances_,"Support Vector Classifier Robust Scaled","r" )
 
 # Output Analysis through Confusion Matrix
 
 rfc.Confusion_mat()
 dt.Confusion_mat()
-svc.Confusion_mat()
-
+svc_clf_s.Confusion_mat()
+svc_clf_n.Confusion_mat()
+svc_clf_r.Confusion_mat()
 # Metric scores
 
 rfc.get_metrics_score()
 dt.get_metrics_score()
-svc.get_metrics_score()
+svc_clf_s.get_metrics_score()
+svc_clf_n.get_metrics_score()
+svc_clf_r.get_metrics_score()
 
 # Random Variable Filter
 rfc.random_filter()
 dt.random_filter()
-svc.random_filter()
+svc_clf_s.random_filter()
+svc_clf_n.random_filter()
+svc_clf_r.random_filter()
 
 # Hyperparameter Optimization
 rfc.params_opt()
 dt.params_opt()
-svc.params_opt()
+svc_clf_s.params_opt()
+svc_clf_n.params_opt()
+svc_clf_r.params_opt()
