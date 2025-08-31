@@ -16,23 +16,54 @@ from sklearn.metrics import accuracy_score, classification_report, precision_sco
 from sklearn.preprocessing import StandardScaler, Normalizer , RobustScaler
 from sklearn.pipeline import make_pipeline
 
-class RFC:
+
+class base_class:
+   def __init__(self, df, Y_class):
+        self.target_names = ['class 0', 'class 1', 'class 2']
+        self.Y_class = Y_class
+        self.df = df
+        # Train/Test split
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
+            df, self.Y_class, test_size=0.2, random_state=42
+        )
   
-    def __init__(self,df, Y_class):
-      self.target_names = ['class 0', 'class 1', 'class 2']
-      self.Name = "Random Forest Classifier"
-      self.df = df
-      self.Y_class = Y_class
-      self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(df, Y_class, test_size=0.2, random_state=42)
-
-      self.model = RandomForestClassifier(random_state= 42)
-      self.model.fit(self.X_train,self.y_train)
-      self.y_pred = self.model.predict(self.X_test)
-      self.feature_importance = self.model.feature_importances_
-
-    def predicten(self):
+   def predicten(self):
       self.y_pred = self.model.predict(self.X_test)
       print(f"The Predicted Outputs are as follows: \n{self.y_pred}")
+
+
+   def Confusion_mat(self):
+      cm = confusion_matrix(self.y_test, self.y_pred)
+      sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+      plt.xlabel("Predicted")
+      plt.ylabel("True")
+      plt.show(block=False)
+
+  
+
+   def get_metrics_score(self):
+       print(f"The calculated Accuracy Score of the {self.Name} Model is {accuracy_score(self.y_test ,self.y_pred)}")
+       print(f"The Classification Report of the {self.Name} ist \n{classification_report(self.y_test,self.y_pred ,target_names=self.target_names)}")    
+   
+
+
+class RFC(base_class):
+  
+    def __init__(self, df, Y_class, name=None):
+        super().__init__(df, Y_class)
+        self.model = RandomForestClassifier(random_state=42)
+        self.Name = "Random Forest Classifier" if name is None else name
+        self.model.fit(self.X_train, self.y_train)
+        self.y_pred = self.model.predict(self.X_test)
+        self.model.feature_importances = self.feature_importance()
+   
+    def params_opt(self):
+
+      parameters = {'n_estimators':[1000, 2500, 5000, 7500, 10000], 'max_depth':[30,35,45,50], "ccp_alpha":[0.01,0.1,1,10]}
+      self.opt_model = GridSearchCV(self.model, parameters)
+      self.opt_model.fit(self.X_train,self.y_train)
+
+      self.y_pred_clf = self.opt_model.predict(self.X_test)
 
     def feature_importance(self):
       self.feature_importance = self.model.feature_importances_
@@ -49,13 +80,6 @@ class RFC:
       plt.bar(range(self.X_train.shape[1]) , sorted_importances)
       plt.xticks( range(self.X_train.shape[1]), self.X_train.columns[sorted_indices], rotation=90)
       plt.title("Feature Importances")
-      plt.show()
-
-    def Confusion_mat(self):
-      cm = confusion_matrix(self.y_test, self.y_pred)
-      sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-      plt.xlabel("Predicted")
-      plt.ylabel("True")
       plt.show(block=False)
 
     def random_filter(self):  
@@ -65,6 +89,7 @@ class RFC:
 
       df1 = self.df.drop(columns=Colname) 
       df1 = df1.drop(columns= "Random_Variable")
+      self.df1 = df1
       self.y_pred = self.model.predict(self.X_test)
 
       self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(df1, self.Y_class, test_size=0.2, random_state=42)
@@ -74,22 +99,8 @@ class RFC:
 
       self.Confusion_mat()
       self.get_metrics_score()
-  
-    def params_opt(self):
 
-      parameters = {'n_estimators':[1000, 2500, 5000, 7500, 10000], 'max_depth':[30,35,45,50], "ccp_alpha":[0.01,0.1,1,10]}
-      self.opt_model = GridSearchCV(self.model, parameters)
-      self.opt_model.fit(self.X_train,self.y_train)
-
-      self.y_pred_clf = self.opt_model.predict(self.X_test)
-
-    def get_metrics_score(self):
-       print(f"The calculated Accuracy Score of the {self.Name} Model is {accuracy_score(self.y_test ,self.y_pred)}")
-       print(f"The Classification Report of the {self.Name} ist \n{classification_report(self.y_test,self.y_pred ,target_names=self.target_names)}")
-
-
-
-class Dec_tree(RFC):
+class Dec_tree(base_class):
    
    def __init__(self,df,Y_class, feature_importances_ = None):
       super().__init__(df,Y_class)
@@ -106,18 +117,21 @@ class Dec_tree(RFC):
       self.opt_model.fit(self.X_train,self.y_train)
 
       self.y_pred_clf = self.opt_model.predict(self.X_test)
+
+
    
 
       
-class SVM_clf(RFC):
+class SVM_clf(base_class):
    def __init__(self,df,Y_class, feature_importances_ = None, name = None ,dec = None):
       super().__init__(df,Y_class)
+
       if dec is None:
-         self.model = make_pipeline(StandardScaler(), SVC())
+         self.model = make_pipeline(StandardScaler(), SVC(random_state= 42))
       elif dec == "n":
-         self.model = make_pipeline(Normalizer(), SVC())
+         self.model = make_pipeline(Normalizer(), SVC(random_state= 42))
       elif dec == "r":
-         self.model = make_pipeline(RobustScaler() , SVC())      
+         self.model = make_pipeline(RobustScaler() , SVC(random_state= 42))      
          
       self.Name = "Support Vector Classifier" if name is None else name
       self.model.fit(self.X_train,self.y_train)
@@ -126,12 +140,21 @@ class SVM_clf(RFC):
 
 
    def params_opt(self):
-       parameters = {'kernel':{"linear", "poly", "rbf", "sigmoid"}, 'C':[0.1,1,5,10]}
-       self.opt_model = GridSearchCV(self.model, parameters)
-       self.opt_model.fit(self.X_train,self.y_train)
+        parameters = {
+            'svc__kernel': ["linear", "poly", "rbf", "sigmoid"],
+            'svc__C': [0.1, 1, 5, 10]
+        }
+        self.opt_model = GridSearchCV(self.model, parameters, cv=5)
+        self.opt_model.fit(self.X_train, self.y_train)
+        self.y_pred_clf = self.opt_model.predict(self.X_test)
 
-       self.y_pred_clf = self.opt_model.predict(self.X_test)
+   def random_filter(self):  
+      super().random_filter()
+      self.model = SVC(random_state= 42)
+      self.model.fit(self.X_train , self.y_train)
 
+      self.Confusion_mat()
+      self.get_metrics_score()      
 
 ## Rawdata
 # The Rawdata ist packed into a Dataframe 
@@ -164,15 +187,24 @@ df["Random_Variable"] = np.random.rand(len(df),1) * 100
 # Model Intialization
 
 rfc = RFC(df, Y_class)
+rfc.Confusion_mat()
+rfc.get_metrics_score()
+rfc.random_filter()
+
+#Filtered Dataframe is going to use for other Models to compare the Result with each other
+df = rfc.df1
 dt = Dec_tree(df, Y_class,rfc.model.feature_importances_)
 
 # Only Tree Based Algorithms dont require the scaling of the Data.
 # For SVC, the Scaling of the Data is required.
 
+# First with Linear Models, if results are good, it could lead to the interpretation that the Data is linearly Seperable
+#One hot / Label Encoder not needed because the Dataset only consists of numerical Features. The Names are removed cause they shouldnt play a part in classifying the Data.
 
 svc_clf_s = SVM_clf(df, Y_class,rfc.model.feature_importances_ ,"Support Vector Classifier Standerdized")
 svc_clf_n = SVM_clf(df, Y_class,rfc.model.feature_importances_ ,"Support Vector Classifier Normalized","n")
 svc_clf_r = SVM_clf(df, Y_class,rfc.model.feature_importances_,"Support Vector Classifier Robust Scaled","r" )
+
 
 # Output Analysis through Confusion Matrix
 
@@ -181,24 +213,21 @@ dt.Confusion_mat()
 svc_clf_s.Confusion_mat()
 svc_clf_n.Confusion_mat()
 svc_clf_r.Confusion_mat()
-# Metric scores
 
-rfc.get_metrics_score()
+
+
+# Metric scores
 dt.get_metrics_score()
 svc_clf_s.get_metrics_score()
 svc_clf_n.get_metrics_score()
 svc_clf_r.get_metrics_score()
 
-# Random Variable Filter
-rfc.random_filter()
-dt.random_filter()
-svc_clf_s.random_filter()
-svc_clf_n.random_filter()
-svc_clf_r.random_filter()
 
 # Hyperparameter Optimization
 rfc.params_opt()
 dt.params_opt()
+
+
 svc_clf_s.params_opt()
 svc_clf_n.params_opt()
 svc_clf_r.params_opt()
