@@ -16,16 +16,17 @@ from sklearn.metrics import accuracy_score, classification_report, precision_sco
 from sklearn.preprocessing import StandardScaler, Normalizer , RobustScaler
 from sklearn.pipeline import make_pipeline
 import os
+from openpyxl import load_workbook
 
 
-
+# Creating a new Folder to save the Plots
 if not os.path.exists(r"Projektarbeit-KI-ML\Supervised\Plots"):
     os.makedirs(r"Projektarbeit-KI-ML\Supervised\Plots")
 
-# Globale Liste für Ergebnisse
+# A list to keep all the Metric Scores
 results_list = []
 
-# ------------------- Funktion zum Excel-Speichern -------------------
+# Function to save the Excel file
 def save_results_to_excel(results_list, filename="model_results.xlsx", folder=r"Projektarbeit-KI-ML\Supervised\Result"):
     if not results_list:
         print("Warning: results_list is empty. No Excel file will be saved.")
@@ -50,9 +51,10 @@ def save_results_to_excel(results_list, filename="model_results.xlsx", folder=r"
 
     print(f"Ergebnisse wurden in '{os.path.abspath(filepath)}' gespeichert!")
 
-# ------------------- Basisklasse -------------------
+# Base class for the other Classes to inherit from
 class base_class:
     def __init__(self, df, Y_class):
+        #Data is classfied into 3 Classes: 0,1 and 2
         self.target_names = ['class 0', 'class 1', 'class 2']
         self.Y_class = Y_class
         self.df = df
@@ -60,22 +62,34 @@ class base_class:
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
             df, self.Y_class, test_size=0.2, random_state=55
         )
-  
+  # Function to give the prediction of the Test Data
     def predicten(self):
       self.y_pred = self.model.predict(self.X_test)
       print(f"The Predicted Outputs are as follows: \n{self.y_pred}")
 
 
+   # Function to give out a Confusion Matrix of the said Instance of the Class
     def Confusion_mat(self):
-      cm = confusion_matrix(self.y_test, self.y_pred)
-      sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-      plt.xlabel("Predicted")
-      plt.ylabel("True")
-      plt.savefig(r"Projektarbeit-KI-ML\Supervised\Plots\feature_importances_RFC.png", bbox_inches='tight')
+        cm = confusion_matrix(self.y_test, self.y_pred)
+
+        plt.figure(figsize=(6,4))  # neue Abbildung
+        ax = sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                        cbar=True, linewidths=0.5, linecolor="gray")
+
+        # Achsen-Beschriftungen
+        plt.xlabel("Predicted")
+        plt.ylabel("True")
+        plt.title("Confusion Matrix")
+        plt.tight_layout()
+
+        plt.savefig(r"Projektarbeit-KI-ML\Supervised\Plots\\" + self.Name + ".png", 
+                    bbox_inches='tight')
+        plt.close()
+
 
        
 
-
+    # Function to get the Metrics scores and save those in the Results list
     def get_metrics_score(self):
         print(f"The calculated Accuracy Score of the {self.Name} Model is {accuracy_score(self.y_test, self.y_pred)}")
         print(f"The Classification Report of the {self.Name} is \n{classification_report(self.y_test, self.y_pred, target_names=self.target_names)}")
@@ -109,13 +123,14 @@ class base_class:
 class RFC(base_class):
     def __init__(self, df, Y_class, name=None):
         super().__init__(df, Y_class)
-        self.model = RandomForestClassifier(random_state=42, n_jobs=4,max_depth=30 , n_estimators=15000 ,ccp_alpha = 10)
+        self.model = RandomForestClassifier(random_state=42, n_jobs=4,max_depth=30 , n_estimators=10000 ,ccp_alpha = 10)
+        
         self.Name = "Random Forest Classifier" if name is None else name
         self.model.fit(self.X_train, self.y_train)
         self.y_pred = self.model.predict(self.X_test)
-        self.model.feature_importances = self.feature_importance()
+        self.feature_importance()
 
-
+#Function for Parameter Optimization with Gridsearch
     def params_opt(self):
         parameters = {'n_estimators':[1000, 2500, 5000, 7500, 10000], 
                       'max_depth':[30,35,45,50], 
@@ -124,6 +139,7 @@ class RFC(base_class):
         self.opt_model.fit(self.X_train, self.y_train)
         self.y_pred_clf = self.opt_model.predict(self.X_test)
 
+#Function to determine the Feature Importance of the given Instance of the Class
     def feature_importance(self, save=True):
         self.feature_importance = self.model.feature_importances_
         for feature, importance in zip(self.X_train.columns, self.feature_importance):
@@ -140,9 +156,10 @@ class RFC(base_class):
         if save:
             plt.savefig(r"C:\Users\liwas\OneDrive\Desktop\Hochschule München\MBB8\Applied ML\Projektarbeit\Projektarbeit-KI-ML\Supervised\Plots\feature_importances_RFC.png", bbox_inches='tight')
 
-        return self.feature_importance
+        
 
-    
+# Function to filter out the Features less important the randomly generated Variable
+ 
     def random_filter(self):
         Ind = np.where(self.feature_importance < self.feature_importance[-1])
         Colname = self.df.columns[Ind]
@@ -157,53 +174,67 @@ class RFC(base_class):
         self.y_pred = self.model.predict(self.X_test)
 
 # ------------------- Decision Tree -------------------
+
 class Dec_tree(base_class):
     def __init__(self, df, Y_class, feature_importances_=None):
         super().__init__(df, Y_class)
-       # self.model = DecisionTreeClassifier(random_state=42, max_depth=10)
-        self.model = DecisionTreeClassifier(random_state=42, max_depth=10,ccp_alpha= 0.001)
+        #self.model = DecisionTreeClassifier(random_state=42)
+        self.model = DecisionTreeClassifier(random_state=42, max_depth = 10, ccp_alpha= 0.0 ,min_samples_leaf=1,min_samples_split=5)
         self.Name = "Decision Tree"
         self.model.fit(self.X_train, self.y_train)
         self.y_pred = self.model.predict(self.X_test)
         self.feature_importance = feature_importances_
 
+#Function for Parameter Optimization with Gridsearch
     def params_opt(self):
-        parameters = {'max_depth':[10,50,100,500], "ccp_alpha":[0.01,0.1,1,10]}
-        self.opt_model = GridSearchCV(self.model, parameters, n_jobs=-1, verbose=0)
-        self.opt_model.fit(self.X_train, self.y_train)
-        self.y_pred_clf = self.opt_model.predict(self.X_test)
+        param_grid = {
+            'criterion': ['gini', 'entropy'],
+            'max_depth': [None, 5, 10, 20, 50],
+            'min_samples_split': [2, 5, 10, 20],
+            'min_samples_leaf': [1, 2, 5, 10],
+            'max_features': [None, 'sqrt', 'log2'],
+            'ccp_alpha': [0.0, 0.01, 0.1]
+        }
 
-        parameters = {'max_depth': [10, 50, 100, 500], "ccp_alpha": [0.01, 0.1, 1, 10]}
-        opt_model = GridSearchCV(self.model, parameters, n_jobs=-1, verbose=0)
-        opt_model.fit(self.X_train, self.y_train)
-        self.y_pred = opt_model.predict(self.X_test)
-        self.best_params = opt_model.best_params_
+        self.opt_model = GridSearchCV(self.model, param_grid, n_jobs=4, verbose=1, cv=5)
+        self.opt_model.fit(self.X_train, self.y_train)
+
+        self.y_pred = self.opt_model.predict(self.X_test)
+        self.best_params = self.opt_model.best_params_
+
+        print(f"The best Params are {self.best_params}")
+        print(f"Best CV Score: {self.opt_model.best_score_:.4f}")
+
+
 
 # ------------------- Support Vector Classifier -------------------
 class SVM_clf(base_class):
     def __init__(self, df, Y_class, feature_importances_=None, name=None, dec=None):
         super().__init__(df, Y_class)
+
+        #Made various If statements to create various Models for testing
         if dec is None:
-            self.model = make_pipeline(StandardScaler(), SVC(random_state= 42, C=10,gamma=0.15 , kernel="rbf"))
+            self.model = make_pipeline(StandardScaler(), SVC(random_state= 42))
         elif dec=="n":
-            self.model = make_pipeline(StandardScaler(), SVC(random_state=42, C = 10, degree= 6 ,kernel="poly"))
+            self.model = make_pipeline(Normalizer(norm="l1"), SVC(random_state= 42, C=10,gamma=0.15 , kernel="rbf"))
         elif dec=="n1":
-            self.model = make_pipeline(StandardScaler(), SVC(random_state=42, C = 10,degree = 5, kernel="poly"))
+            self.model = make_pipeline(Normalizer(norm="l2"), SVC(random_state= 42, C=10,gamma=0.15 , kernel="rbf"))
         elif dec=="n2":
-            self.model = make_pipeline(StandardScaler(), SVC(random_state=42, C = 10, degree= 7,kernel="poly"))
-        elif dec=="r":
-            self.model = make_pipeline(StandardScaler(), SVC(random_state=42,C= 10, gamma = 0.75 , kernel="rbf"))
+            self.model = make_pipeline(Normalizer(norm="max"), SVC(random_state=42,C= 10, gamma=0.15 , kernel="rbf"))
         elif dec=="r1":
-            self.model = make_pipeline(StandardScaler(), SVC(random_state=42,C=10, gamma=0.5 , kernel="rbf"))
+            self.model = make_pipeline(RobustScaler(quantile_range = (25.0, 75.0)), SVC(random_state=42,C=10, gamma=0.15, kernel="rbf"))
         elif dec=="r2":
-            self.model = make_pipeline(StandardScaler(), SVC(random_state=42,C=10 ,gamma=0.1, kernel="rbf"))    
+            self.model = make_pipeline(RobustScaler(quantile_range = ((10.0, 90.0))), SVC(random_state=42,C=10 ,gamma=0.15, kernel="rbf"))    
         elif dec=="r3":
-            self.model = make_pipeline(StandardScaler(), SVC(random_state=42,C=10 , gamma = 0,kernel="rbf"))        
+            self.model = make_pipeline(RobustScaler(quantile_range = (30, 70)), SVC(random_state=42,C=10 ,gamma=0.15,kernel="rbf"))       
+        elif dec=="r4":
+            self.model = make_pipeline(RobustScaler(quantile_range = (40, 60)), SVC(random_state=42,C=10 ,gamma=0.15,kernel="rbf"))             
         self.Name = "Support Vector Classifier" if name is None else name
         self.model.fit(self.X_train, self.y_train)
         self.y_pred = self.model.predict(self.X_test)
         self.feature_importance = feature_importances_
 
+#Function for Parameter Optimization with Gridsearch
     def params_opt(self):
         parameters = {'svc__kernel': ["linear", "poly", "rbf", "sigmoid"],
                       'svc__C': [0.1, 1, 5, 10]}
@@ -215,76 +246,83 @@ class SVM_clf(base_class):
         self.y_pred = opt_model.predict(self.X_test)
         self.best_params = opt_model.best_params_
 
-    def params_opt2(self):
-        parameters = {'svc__kernel': [ "poly", "rbf"],
-                      'degree': [2, 5,7,10] , 'gamma': [0.001,0.1,1,10]}
-        self.opt_model = GridSearchCV(self.model, parameters, cv=5, n_jobs=-1, verbose=0)
-        self.opt_model.fit(self.X_train, self.y_train)
-        self.y_pred_clf = self.opt_model.predict(self.X_test)
-        opt_model = GridSearchCV(self.model, parameters, cv=5, n_jobs=-1, verbose=0)
-        opt_model.fit(self.X_train, self.y_train)
-        self.y_pred = opt_model.predict(self.X_test)
-        self.best_params = opt_model.best_params_   
 
 # ------------------- Main -------------------
 if __name__ == "__main__":
+
     ## Load Data
     df = pd.read_excel(r"C:\Users\liwas\OneDrive\Desktop\Hochschule München\MBB8\Applied ML\Projektarbeit\chiefs_knife_dataset.xlsx")
     Y = df['Ra']
     #df = pd.read_excel(r"filtered_dataframe.xlsx")
     
-
+# Classification of labels into 3 Classes
     ind_0 = np.where(Y < 0.13)
     ind_1 = np.where((Y >= 0.13) & (Y <= 0.21))
     ind_2 = np.where(Y > 0.21)
-
 
     Y_class = Y.copy()
     Y_class[ind_0] = 0
     Y_class[ind_1] = 1
     Y_class[ind_2] = 2
 
+# First two columns are ignored, cause the name and the associated number of the data point shouldnt contribute in training of the Model
     df = df.iloc[:, 2:-17]
     df = df.drop(columns="Linie")
+#Randomly generated Variable to put up as a benchmark to filter out the ones which are lesser important than it
     df["Random_Variable"] = np.random.rand(len(df),1) * 100
   
 
-    ## Train Models
-    # Train Models
+  # Creating a Instance of RFC 
     rfc = RFC(df, Y_class)
     rfc.random_filter()
-    #rfc.Confusion_mat()
+    rfc.Confusion_mat()
+
+# Df1 is just the filtered DF which consists of Features more important than the Randomly generated Values
+    df = rfc.df1 
+    #df.to_excel("filtered_dataframe.xlsx", index=False)  
+    dt = Dec_tree(df, Y_class, rfc.feature_importance)
+    dt.params_opt()
     
 
-   # df = rfc.df1 
-    #df.to_excel("filtered_dataframe.xlsx", index=False)  
-   # dt = Dec_tree(df, Y_class, rfc.feature_importance)
-    svc_clf_s = SVM_clf(df, Y_class, rfc.feature_importance, "SVC gamma 0_15")
-    svc_clf_n = SVM_clf(df, Y_class, rfc.feature_importance, "SVC deg 6", "n")
-    svc_clf_n1 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC deg 5", "n1")
-    svc_clf_n2 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC deg 7", "n2")
-    svc_clf_r = SVM_clf(df, Y_class, rfc.feature_importance, "SVC gamma 0_75", "r")
-    svc_clf_r1 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC gamma 0_5", "r1")
-    svc_clf_r2 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC gamma 0_1", "r2")
-    svc_clf_r3 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC gamma 0", "r3")
+# Multiple Instances for the Sensitivity Analysis
+#     
+    svc_clf_s = SVM_clf(df, Y_class, rfc.feature_importance, "SVC Default")
+    #svc_clf_n = SVM_clf(df, Y_class, rfc.feature_importance, "SVC Normalized l2 norm", "n")
+   # svc_clf_n1 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC Normalized l1 norm", "n1")
+    #svc_clf_n2 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC Normalized max nomr", "n2")
+    #svc_clf_r1 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC Robustscaler Quantile Range 75 Default", "r1")
+    #svc_clf_r2 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC Robustscaler Quantile Range 90 ", "r2")
+    #svc_clf_r3 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC Robustscaler Quantile Range 70 ", "r3")
+    #svc_clf_r4 = SVM_clf(df, Y_class, rfc.feature_importance, "SVC Robustscaler Quantile Range 60 ", "r4")
 
 
     # Metric Scores nach Optimierung speichern (inkl. Best Params)
-   # rfc.get_metrics_score()
-   # dt.get_metrics_score()
+    rfc.get_metrics_score()
+    dt.get_metrics_score()
     svc_clf_s.get_metrics_score()
-    svc_clf_n.get_metrics_score()
-    svc_clf_n1.get_metrics_score()
-    svc_clf_n2.get_metrics_score()
-    svc_clf_r.get_metrics_score()
-    svc_clf_r1.get_metrics_score()
-    svc_clf_r2.get_metrics_score()
-    svc_clf_r3.get_metrics_score()
+    #svc_clf_n.get_metrics_score()
+    #svc_clf_n1.get_metrics_score()
+    #svc_clf_n2.get_metrics_score()
+    #svc_clf_r4.get_metrics_score()
+    #svc_clf_r1.get_metrics_score()
+    #svc_clf_r2.get_metrics_score()
+    #svc_clf_r3.get_metrics_score()
+
 
     # Confusion Matrices
-    #rfc.Confusion_mat()
-    #svc_clf_n.Confusion_mat()
+    rfc.Confusion_mat()
+    dt.Confusion_mat()
+    svc_clf_s.Confusion_mat()
     #svc_clf_r.Confusion_mat()
+    #svc_clf_r1.Confusion_mat()
+    #svc_clf_r2.Confusion_mat()
+    #svc_clf_r3.Confusion_mat()
 
     # Ergebnisse in Excel speichern
     save_results_to_excel(results_list)
+
+    #df = pd.read_excel("Projektarbeit-KI-ML\Supervised\Result\model_results.xlsx", usecols =[0,1,2,3] )
+
+    #wb = load_workbook("Projektarbeit-KI-ML\Supervised\Result\Result.xlsx")
+    #ws = wb.active # active Worksheet  
+
