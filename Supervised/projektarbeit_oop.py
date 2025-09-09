@@ -35,7 +35,7 @@ def save_results_to_excel(results_list, filename="model_results.xlsx", folder="r
     metrics_df = results_df[metrics_cols]
 
     # Hyperparameters-Blatt
-    hyperparams_df = results_df[["Model", "Best Params"]]
+    hyperparams_df = results_df[["Model", "Best Params"]] 
 
     filepath = os.path.join(folder, filename)
     with pd.ExcelWriter(filepath, engine="openpyxl") as writer:
