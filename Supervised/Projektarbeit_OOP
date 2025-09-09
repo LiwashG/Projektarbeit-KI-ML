@@ -76,7 +76,7 @@ class base_class:
         ax = sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
                         cbar=True, linewidths=0.5, linecolor="gray")
 
-        # Achsen-Beschriftungen
+        # Axis Description
         plt.xlabel("Predicted")
         plt.ylabel("True")
         plt.title("Confusion Matrix")
@@ -85,9 +85,7 @@ class base_class:
         plt.savefig(r"Projektarbeit-KI-ML\Supervised\Plots\\" + self.Name + ".png", 
                     bbox_inches='tight')
         plt.close()
-
-
-       
+      
 
     # Function to get the Metrics scores and save those in the Results list
     def get_metrics_score(self):
@@ -100,6 +98,7 @@ class base_class:
         print(f"The calculated Accuracy Score of the {self.Name} Model is {acc}")
         print(f"The Classification Report of the {self.Name} is \n{classification_report(self.y_test, self.y_pred, target_names=self.target_names)}")
 
+        # To save all the Metric Scores from Classfication Report and other Metrics
         results_list.append({
             "Model": self.Name,
             "Accuracy": acc,
@@ -120,6 +119,7 @@ class base_class:
            })
 
 # ------------------- Random Forest Classifier -------------------
+
 class RFC(base_class):
     def __init__(self, df, Y_class, name=None):
         super().__init__(df, Y_class)
@@ -153,6 +153,7 @@ class RFC(base_class):
         plt.bar(range(self.X_train.shape[1]), sorted_importances)
         plt.xticks(range(self.X_train.shape[1]), self.X_train.columns[sorted_indices], rotation=90)
         plt.title("Feature Importances")
+        #To save the Plots created by the Script
         if save:
             plt.savefig(r"C:\Users\liwas\OneDrive\Desktop\Hochschule München\MBB8\Applied ML\Projektarbeit\Projektarbeit-KI-ML\Supervised\Plots\feature_importances_RFC.png", bbox_inches='tight')
 
@@ -279,7 +280,6 @@ if __name__ == "__main__":
 
 # Df1 is just the filtered DF which consists of Features more important than the Randomly generated Values
     df = rfc.df1 
-    #df.to_excel("filtered_dataframe.xlsx", index=False)  
     dt = Dec_tree(df, Y_class, rfc.feature_importance)
     dt.params_opt()
     
@@ -318,11 +318,7 @@ if __name__ == "__main__":
     #svc_clf_r2.Confusion_mat()
     #svc_clf_r3.Confusion_mat()
 
-    # Ergebnisse in Excel speichern
+    ## Saving all the Result in a Excel File
     save_results_to_excel(results_list)
 
-    #df = pd.read_excel("Projektarbeit-KI-ML\Supervised\Result\model_results.xlsx", usecols =[0,1,2,3] )
-
-    #wb = load_workbook("Projektarbeit-KI-ML\Supervised\Result\Result.xlsx")
-    #ws = wb.active # active Worksheet  
 
