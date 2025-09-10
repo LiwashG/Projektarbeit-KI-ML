@@ -16,7 +16,14 @@ from tensorflow.keras.callbacks import EarlyStopping
 class Step1Tuning:
     def __init__(self, filepath, results_file="step_1_hyperparameter_tuning.xlsx"):
         """
-        Initialize the grid search experiment.
+        Initialize the Step 1 hyperparameter tuning experiment.
+
+        Parameters
+        ----------
+        filepath : str
+            Path to the raw dataset (Excel format).
+        results_file : str, optional
+            Output file for saving grid search results (default: "step_1_hyperparameter_tuning.xlsx").
         """
         self.filepath = filepath
         self.results_file = results_file
@@ -25,46 +32,68 @@ class Step1Tuning:
         self.y_categorical = None
         self.results = []
 
-        # Hyperparameter search space
-        self.layer_options = [2, 3, 4]
-        self.neuron_options = [128, 64, 32, 16]
-        self.topologies = ["Funnel", "Manhattan"]
+        # Define the hyperparameter search space
+        self.layer_options = [2, 3, 4]                       # Number of hidden layers
+        self.neuron_options = [128, 64, 32, 16]              # Possible neuron counts
+        self.topologies = ["Funnel", "Manhattan"]            # Topology types
 
-        self.batch_sizes = [16, 32, 64, 128]
-        self.activations = ["relu", "leaky_relu"]
-        self.learning_rates = [1e-4, 5e-4, 1e-3, 5e-3]
-        self.dropouts = [0, 0.1, 0.2, 0.3, 0.4]
-        self.l2_options = [0, 5e-4, 1e-3, 5e-3, 1e-2]
+        self.batch_sizes = [16, 32, 64, 128]                 # Batch sizes
+        self.activations = ["relu", "leaky_relu"]            # Activation functions
+        self.learning_rates = [1e-4, 5e-4, 1e-3, 5e-3]       # Learning rates
+        self.dropouts = [0, 0.1, 0.2, 0.3, 0.4]              # Dropout rates
+        self.l2_options = [0, 5e-4, 1e-3, 5e-3, 1e-2]        # L2 regularization values
 
     def load_and_prepare_data(self):
         """
-        Load dataset, preprocess features, and encode target into 3 classes.
+        Load the dataset, preprocess the features, and encode the target variable into three classes.
+        
+        Notes
+        -----
+        The surface roughness parameter 'Ra' is categorized into:
+        - Class 0: Ra < 0.13
+        - Class 1: 0.13 <= Ra <= 0.21
+        - Class 2: Ra > 0.21
         """
         self.df = pd.read_excel(self.filepath)
 
-        # Prepare features and target
+        # Separate features and target
         X = self.df.drop(columns=["Number", "Name", "Linie", "Ra", "Rz", "Rq", "Rt", "Gloss"])
         y_ra = self.df["Ra"]
 
-        # Create class labels based on thresholds
+        # Encode target values into three classes
         y = y_ra.copy()
         y[np.where(y_ra < 0.13)] = 0
         y[np.where((y_ra >= 0.13) & (y_ra <= 0.21))] = 1
         y[np.where(y_ra > 0.21)] = 2
         y = y.astype(int)
 
-        # One-hot encode the labels
+        # Convert to one-hot encoding
         self.y_categorical = to_categorical(y)
 
-        # Scale features
+        # Normalize features
         scaler = StandardScaler()
         self.X_scaled = scaler.fit_transform(X)
 
     def generate_layer_configs(self, topology, num_layers):
         """
-        Generate possible layer configurations based on topology type.
-        - Funnel: descending sequence of neurons
-        - Manhattan: same number of neurons per layer
+        Generate possible layer configurations for the given topology.
+
+        Parameters
+        ----------
+        topology : str
+            Topology type ("Funnel" or "Manhattan").
+        num_layers : int
+            Number of hidden layers.
+
+        Returns
+        -------
+        list
+            A list of layer configurations (lists of integers).
+        
+        Notes
+        -----
+        - Funnel: descending sequence of neurons across layers.
+        - Manhattan: equal number of neurons per layer.
         """
         configs = []
         if topology == "Funnel":
@@ -78,8 +107,21 @@ class Step1Tuning:
 
     def run_grid_search(self):
         """
-        Run the grid search over all hyperparameter combinations.
+        Execute the full grid search across all hyperparameter combinations.
+        
+        The search explores different:
+        - Network topologies (Funnel, Manhattan)
+        - Layer depths
+        - Neuron configurations
+        - Batch sizes
+        - Activation functions
+        - Learning rates
+        - Dropout rates
+        - L2 regularization values
+
+        Results are saved to an Excel file after each iteration.
         """
+        # Compute total number of hyperparameter combinations
         total_combinations = sum(
             len(self.generate_layer_configs(topology, num_layers)) *
             len(self.batch_sizes) *
@@ -93,6 +135,7 @@ class Step1Tuning:
         progress_bar = tqdm(total=total_combinations, desc="GridSearch Progress")
         combination_id = 1
 
+        # Iterate over all hyperparameter combinations
         for topology in self.topologies:
             for num_layers in self.layer_options:
                 layer_configs = self.generate_layer_configs(topology, num_layers)
@@ -103,13 +146,14 @@ class Step1Tuning:
                                 for dropout in self.dropouts:
                                     for l2_value in self.l2_options:
 
+                                        # Early stopping to avoid overfitting
                                         early_stopping = EarlyStopping(
                                             monitor="val_loss",
                                             patience=8,
                                             restore_best_weights=True
                                         )
 
-                                        # Build model layers dynamically
+                                        # Construct the model
                                         model_layers = [Input(shape=(self.X_scaled.shape[1],))]
                                         for neurons in config:
                                             model_layers.append(Dense(
@@ -121,10 +165,9 @@ class Step1Tuning:
                                             if dropout > 0:
                                                 model_layers.append(Dropout(dropout))
 
-                                        # Output layer
+                                        # Output layer (3 classes)
                                         model_layers.append(Dense(3, activation="softmax"))
 
-                                        # Create and compile model
                                         model = Sequential(model_layers)
                                         model.compile(
                                             optimizer=tf.keras.optimizers.Adam(learning_rate=lr),
@@ -132,7 +175,7 @@ class Step1Tuning:
                                             metrics=["accuracy"]
                                         )
 
-                                        # Train model
+                                        # Train the model
                                         history = model.fit(
                                             self.X_scaled, self.y_categorical,
                                             validation_split=0.15,
@@ -142,7 +185,7 @@ class Step1Tuning:
                                             verbose=0
                                         )
 
-                                        # Extract validation results
+                                        # Extract performance metrics
                                         val_acc = round(history.history["val_accuracy"][-1], 4)
                                         val_loss = round(history.history["val_loss"][-1], 4)
                                         early_stopping_triggered = "Yes" if early_stopping.stopped_epoch > 0 else "No"

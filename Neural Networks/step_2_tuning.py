@@ -17,7 +17,16 @@ from tensorflow.keras.callbacks import EarlyStopping
 class Step2Tuning:
     def __init__(self, raw_file, step1_file, step2_file="step_2_hyperparameter_tuning.xlsx"):
         """
-        Initialize epoch tuning process.
+        Initialize the epoch tuning process.
+
+        Parameters
+        ----------
+        raw_file : str
+            Path to the raw dataset (Excel file).
+        step1_file : str
+            Path to the Step 1 hyperparameter tuning results.
+        step2_file : str, optional
+            Output file name for saving Step 2 results (default: step_2_hyperparameter_tuning.xlsx).
         """
         self.raw_file = raw_file
         self.step1_file = step1_file
@@ -25,7 +34,7 @@ class Step2Tuning:
         self.plot_dir = "step_2_hyperparameter_tuning"
         os.makedirs(self.plot_dir, exist_ok=True)
 
-        # Storage
+        # Data storage
         self.df_raw = None
         self.df_best = None
         self.results = []
@@ -38,16 +47,16 @@ class Step2Tuning:
 
     def load_and_prepare_data(self):
         """
-        Load raw dataset, split into train/test, and scale features.
-        Encode target variable into 3 classes.
+        Load the raw dataset, split into training and test sets, 
+        scale the input features, and encode the target variable into three classes.
         """
         self.df_raw = pd.read_excel(self.raw_file, engine="openpyxl")
 
-        # Prepare features and target
+        # Extract features and target variable
         X = self.df_raw.drop(columns=["Number", "Name", "Linie", "Ra", "Rz", "Rq", "Rt", "Gloss"])
         y_ra = self.df_raw["Ra"]
 
-        # Define classes
+        # Encode target into three classes based on specification limits
         y = y_ra.copy()
         y[np.where(y_ra < 0.13)] = 0
         y[np.where((y_ra >= 0.13) & (y_ra <= 0.21))] = 1
@@ -60,7 +69,7 @@ class Step2Tuning:
             X, y_categorical, random_state=42
         )
 
-        # Scale features
+        # Feature scaling
         scaler = StandardScaler()
         self.X_train_scaled = scaler.fit_transform(X_train)
         self.X_test_scaled = scaler.transform(X_test)
@@ -69,8 +78,16 @@ class Step2Tuning:
 
     def load_best_models(self, top_n=1500):
         """
-        Load best models from Step 1 tuning results.
-        Filter only models without early stopping.
+        Load the best-performing models from Step 1 results.
+
+        Parameters
+        ----------
+        top_n : int, optional
+            Number of top models to consider (default: 1500).
+        
+        Notes
+        -----
+        Only models without early stopping are included.
         """
         df = pd.read_excel(self.step1_file, engine="openpyxl")
         df_no_es = df[df["early_stopping"] == "No"]
@@ -78,7 +95,25 @@ class Step2Tuning:
 
     def build_model(self, config, activation, dropout, l2_value, lr):
         """
-        Build and compile a model given the configuration and hyperparameters.
+        Construct and compile a feedforward neural network based on the given configuration.
+
+        Parameters
+        ----------
+        config : list
+            List of neuron counts for each hidden layer.
+        activation : str
+            Activation function to be applied ("relu" or "leaky_relu").
+        dropout : float
+            Dropout rate for regularization.
+        l2_value : float
+            L2 regularization coefficient.
+        lr : float
+            Learning rate for the Adam optimizer.
+
+        Returns
+        -------
+        model : tensorflow.keras.models.Sequential
+            Compiled Keras model.
         """
         model_layers = [Input(shape=(self.X_train_scaled.shape[1],))]
         for neurons in config:
@@ -93,7 +128,7 @@ class Step2Tuning:
             if dropout > 0:
                 model_layers.append(Dropout(dropout))
 
-        # Output layer
+        # Output layer for three classes
         model_layers.append(Dense(3, activation="softmax"))
 
         model = Sequential(model_layers)
@@ -106,23 +141,30 @@ class Step2Tuning:
 
     def plot_history(self, history, combination_id):
         """
-        Save training and validation curves as PNG.
+        Plot and save the training history (accuracy and loss curves).
+
+        Parameters
+        ----------
+        history : tensorflow.keras.callbacks.History
+            Training history returned by model.fit().
+        combination_id : int
+            Unique identifier for the model configuration.
         """
         plt.figure(figsize=(10, 4))
 
-        # Accuracy
+        # Accuracy plot
         plt.subplot(1, 2, 1)
         plt.plot(history.history["accuracy"], label="Train Accuracy")
-        plt.plot(history.history["val_accuracy"], label="Val Accuracy")
+        plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
         plt.xlabel("Epochs")
         plt.ylabel("Accuracy")
         plt.legend()
         plt.title("Accuracy")
 
-        # Loss
+        # Loss plot
         plt.subplot(1, 2, 2)
         plt.plot(history.history["loss"], label="Train Loss")
-        plt.plot(history.history["val_loss"], label="Val Loss")
+        plt.plot(history.history["val_loss"], label="Validation Loss")
         plt.xlabel("Epochs")
         plt.ylabel("Loss")
         plt.legend()
@@ -135,8 +177,15 @@ class Step2Tuning:
 
     def run_epoch_tuning(self, epoch_options=[100, 200], start_id=1001):
         """
-        Train the top-N models with different epoch settings.
-        Save results and plots.
+        Train the top-N models with different epoch values.
+        Save evaluation results and learning curves.
+
+        Parameters
+        ----------
+        epoch_options : list, optional
+            List of epoch counts to evaluate (default: [100, 200]).
+        start_id : int, optional
+            Starting ID for result indexing (default: 1001).
         """
         progress_bar = tqdm(total=len(self.df_best) * len(epoch_options), desc="Epoch Tuning Progress")
         combination_id = start_id
@@ -154,7 +203,7 @@ class Step2Tuning:
             for n_epochs in epoch_options:
                 early_stop = EarlyStopping(monitor="val_loss", patience=10, restore_best_weights=True)
 
-                # Build and train model
+                # Build and train the model
                 model = self.build_model(config, activation, dropout, l2_value, lr)
                 history = model.fit(
                     self.X_train_scaled, self.y_train,
@@ -164,7 +213,7 @@ class Step2Tuning:
                     verbose=0
                 )
 
-                # Evaluate on test data
+                # Evaluate on test set
                 test_loss, test_acc = model.evaluate(self.X_test_scaled, self.y_test, verbose=0)
 
                 # Save results

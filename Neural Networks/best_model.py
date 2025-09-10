@@ -14,9 +14,40 @@ from tensorflow.keras.utils import to_categorical
 
 
 class BestModel:
+    """
+    BestModel class for training and evaluating a deep learning model 
+    on the knife dataset (Ra-based classification).
+
+    Attributes
+    ----------
+    filepath : str
+        Path to the dataset (Excel file).
+    df : pandas.DataFrame
+        Loaded dataset.
+    X_train_scaled : numpy.ndarray
+        Scaled training features.
+    X_test_scaled : numpy.ndarray
+        Scaled testing features.
+    y_train : numpy.ndarray
+        One-hot encoded training labels.
+    y_test : numpy.ndarray
+        One-hot encoded testing labels.
+    model : tensorflow.keras.Model
+        Compiled Keras model.
+    history : tensorflow.python.keras.callbacks.History
+        Training history of the model.
+    scaler : StandardScaler
+        Scaler used to normalize features.
+    """
+
     def __init__(self, filepath):
         """
-        Initialize the KnifeClassifier with dataset path.
+        Initialize the BestModel with dataset path.
+
+        Parameters
+        ----------
+        filepath : str
+            Path to the raw dataset (Excel format).
         """
         self.filepath = filepath
         self.df = None
@@ -30,16 +61,25 @@ class BestModel:
 
     def load_data(self):
         """
-        Load dataset and preprocess features and target variable.
-        Target variable 'Ra' is converted into 3 classification classes.
+        Load and preprocess the dataset.
+
+        Notes
+        -----
+        - Features are standardized using StandardScaler.
+        - Target variable 'Ra' is categorized into three classes:
+          * Class 0: Ra < 0.13
+          * Class 1: 0.13 <= Ra <= 0.21
+          * Class 2: Ra > 0.21
+        - Target is one-hot encoded.
+        - Dataset is split into training and testing sets.
         """
         self.df = pd.read_excel(self.filepath)
 
-        # Drop unused columns to keep only features
+        # Drop unused columns
         X = self.df.drop(columns=["Number", "Name", "Linie", "Ra", "Rz", "Rq", "Rt", "Gloss"])
         y_ra = self.df["Ra"]
 
-        # Create 3 classes based on thresholds of 'Ra'
+        # Encode into three classes
         class_0 = np.where(y_ra < 0.13)
         class_1 = np.where((y_ra >= 0.13) & (y_ra <= 0.21))
         class_2 = np.where(y_ra > 0.21)
@@ -50,7 +90,7 @@ class BestModel:
         y[class_2] = 2
         y = y.astype(int)
 
-        # One-hot encode target variable
+        # One-hot encode
         y_categorical = to_categorical(y)
 
         # Train/test split
@@ -67,36 +107,45 @@ class BestModel:
 
     def build_model(self, input_dim):
         """
-        Build the deep learning model with L2 regularization, dropout, and LeakyReLU.
+        Build and compile the deep learning model.
+
+        Parameters
+        ----------
+        input_dim : int
+            Number of input features.
+
+        Notes
+        -----
+        The model architecture:
+        - 4 hidden layers with 128 neurons each
+        - L2 regularization
+        - LeakyReLU activation (alpha=0.01)
+        - Dropout (rate = 0.3)
+        - Output: 3 classes (softmax)
+        - Optimizer: Adam (lr=1e-4)
         """
         self.model = Sequential([
             Input(shape=(input_dim,)),
 
-            # Hidden Layer 1
             Dense(128, kernel_regularizer=regularizers.l2(0.005)),
             LeakyReLU(alpha=0.01),
             Dropout(0.3),
 
-            # Hidden Layer 2
             Dense(128, kernel_regularizer=regularizers.l2(0.005)),
             LeakyReLU(alpha=0.01),
             Dropout(0.3),
 
-            # Hidden Layer 3
             Dense(128, kernel_regularizer=regularizers.l2(0.005)),
             LeakyReLU(alpha=0.01),
             Dropout(0.3),
 
-            # Hidden Layer 4
             Dense(128, kernel_regularizer=regularizers.l2(0.005)),
             LeakyReLU(alpha=0.01),
             Dropout(0.3),
 
-            # Output Layer for 3 classes
             Dense(3, activation="softmax")
         ])
 
-        # Compile the model
         self.model.compile(
             optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
             loss="categorical_crossentropy",
@@ -105,7 +154,21 @@ class BestModel:
 
     def train(self, epochs=300, batch_size=32, val_split=0.15):
         """
-        Train the model and store the training history.
+        Train the model on training data.
+
+        Parameters
+        ----------
+        epochs : int, optional
+            Number of training epochs (default: 300).
+        batch_size : int, optional
+            Training batch size (default: 32).
+        val_split : float, optional
+            Fraction of training data used for validation (default: 0.15).
+
+        Returns
+        -------
+        tensorflow.python.keras.callbacks.History
+            Training history object.
         """
         self.history = self.model.fit(
             self.X_train_scaled, self.y_train,
@@ -113,14 +176,15 @@ class BestModel:
             epochs=epochs,
             batch_size=batch_size
         )
+        return self.history
 
     def plot_training_history(self):
         """
-        Plot training and validation accuracy and loss curves.
+        Plot training and validation curves for accuracy and loss.
         """
         plt.figure(figsize=(12, 5))
 
-        # Accuracy plot
+        # Accuracy
         plt.subplot(1, 2, 1)
         plt.plot(self.history.history['accuracy'], label="Train Accuracy")
         plt.plot(self.history.history['val_accuracy'], label="Val Accuracy")
@@ -129,7 +193,7 @@ class BestModel:
         plt.legend()
         plt.title("Model Accuracy")
 
-        # Loss plot
+        # Loss
         plt.subplot(1, 2, 2)
         plt.plot(self.history.history['loss'], label="Train Loss")
         plt.plot(self.history.history['val_loss'], label="Val Loss")
@@ -143,13 +207,21 @@ class BestModel:
 
     def evaluate(self):
         """
-        Evaluate model on test data, print accuracy, and display confusion matrix.
+        Evaluate the model on test data.
+
+        Prints
+        ------
+        - Test accuracy.
+
+        Displays
+        --------
+        - Confusion matrix (true vs. predicted labels).
         """
         y_pred = self.model.predict(self.X_test_scaled)
         y_pred_classes = np.argmax(y_pred, axis=1)
         y_true_classes = np.argmax(self.y_test, axis=1)
 
-        # Test accuracy
+        # Accuracy
         test_acc = accuracy_score(y_true_classes, y_pred_classes)
         print("\nTest Accuracy:", test_acc)
 
